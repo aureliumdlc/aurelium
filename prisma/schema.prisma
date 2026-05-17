@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  publicId          String   @unique
+  email             String   @unique
+  passwordHash      String
+  role              String   @default("USER")
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean  @default(false)
+  banned            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  license       License?
+  hwid          Hwid?
+  sessions      Session[]
+  loginHistory  LoginHistory[]
+  payments      Payment[]
+  promoUses     PromoCodeUse[]
+  heartbeats    Heartbeat[]
+}
+
+model License {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String
+  status    String   @default("ACTIVE")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Hwid {
+  id      String   @id @default(cuid())
+  userId  String   @unique
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value   String
+  boundAt DateTime @default(now())
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  deviceInfo   String?
+  ip           String?
+  userAgent    String?
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip        String?
+  userAgent String?
+  success   Boolean
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount       Int
+  currency     String    @default("RUB")
+  plan         String?
+  type         String
+  status       String    @default("PENDING")
+  promoCodeId  String?
+  promoCode    PromoCode? @relation(fields: [promoCodeId], references: [id])
+  externalId   String    @unique
+  cryptoTxHash String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+}
+
+model PromoCode {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  type            String
+  discountPercent Int            @default(0)
+  maxUses         Int?
+  usedCount       Int            @default(0)
+  expiresAt       DateTime?
+  createdById     String?
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  payments        Payment[]
+  uses            PromoCodeUse[]
+}
+
+model PromoCodeUse {
+  id          String    @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([promoCodeId, userId])
+}
+
+model Heartbeat {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip        String?
+  createdAt DateTime @default(now())
+}
